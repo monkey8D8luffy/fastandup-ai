@@ -83,7 +83,7 @@ st.markdown("""
 st.markdown("<h1>⚡ Fast&Up</h1>", unsafe_allow_html=True)
 st.markdown("<div class='subtitle'>Pro Nutrition AI Consultant</div>", unsafe_allow_html=True)
 
-# --- 2. API SETUP (GROQ + Llama 3) ---
+# --- 2. API SETUP (GROQ + Llama 3.3 70B) ---
 try:
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 except KeyError:
@@ -107,7 +107,6 @@ if "chat_step" not in st.session_state:
 if "user_profile" not in st.session_state:
     st.session_state.user_profile = {}
 if "api_history" not in st.session_state:
-    # Initialize Groq history format
     st.session_state.api_history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
 def advance_step(user_choice, next_bot_msg, profile_key):
@@ -118,13 +117,38 @@ def advance_step(user_choice, next_bot_msg, profile_key):
         st.session_state.messages.append({"role": "assistant", "content": next_bot_msg})
     st.rerun()
 
-# --- 4. FAQS DATA ---
+# --- 4. 30 INSTANT FAQS DATA ---
 FAQS = {
-    "1. What is Fast&Up Reload?": "Reload is India’s first hypotonic effervescent hydration supplement with essential electrolytes and Vitamin C.",
+    "1. What is Fast&Up Reload?": "Reload is India’s first hypotonic effervescent hydration supplement with essential electrolytes (Sodium, Potassium, Magnesium, Calcium) and Vitamin C.",
     "2. How do I consume effervescent tablets?": "Drop 1 tablet in 250ml of water, wait for it to dissolve completely, and drink. Do not swallow the tablet directly.",
-    "3. Are Fast&Up products Vegan?": "Yes! The vast majority of our products, including Reload, BCAA, and Plant Protein, are 100% vegan.",
-    "4. When should I take Fast&Up BCAA?": "BCAA is best taken intra-workout (during your workout) to prevent muscle breakdown.",
-    "5. What is Fast&Up Charge used for?": "Charge is a daily immunity booster featuring 1000mg of natural Amla extract (Vitamin C) and Zinc."
+    "3. Are Fast&Up products Vegan?": "Yes! The vast majority of our products, including Reload, BCAA, and Plant Protein, are 100% vegan and plant-based.",
+    "4. When should I take Fast&Up BCAA?": "BCAA is best taken intra-workout (during your workout) or immediately after to prevent muscle breakdown and speed up recovery.",
+    "5. What is Fast&Up Charge used for?": "Charge is a daily immunity booster featuring 1000mg of natural Amla extract (Vitamin C) and Zinc.",
+    "6. What is the difference between Whey and Plant Protein?": "Whey is derived from milk, offering quick absorption. Plant Protein is derived from Pea and Brown Rice, perfect for vegans or those with lactose intolerance.",
+    "7. Does Reload contain sugar?": "No! Fast&Up Reload contains zero added sugar, making it the perfect healthy hydration choice.",
+    "8. Are your products tested for banned substances?": "Yes, our flagship sports range carries the elite 'Informed-Sport' certification, meaning every batch is tested for banned substances.",
+    "9. Can I mix two Fast&Up tablets together?": "Yes! A popular combo is mixing 1 tablet of Reload with 1 tablet of BCAA in 500ml of water during heavy workouts.",
+    "10. Do I need a prescription for Fast&Up?": "No, our products are nutritional health supplements and do not require a doctor's prescription.",
+    "11. What is the shelf life of the products?": "Most of our products have a shelf life of 18-24 months from the date of manufacturing.",
+    "12. How long does shipping take?": "Standard delivery takes 3-5 business days across India. Express delivery is available for select metro pincodes.",
+    "13. Is Cash on Delivery (COD) available?": "Yes, COD is available across most pincodes in India.",
+    "14. What is your return policy?": "We offer a 7-day replacement policy for damaged, missing, or incorrect products received.",
+    "15. Can pregnant women consume Fast&Up?": "While safe, we always recommend pregnant or lactating women consult their physician before adding new supplements.",
+    "16. Is Fast&Up suitable for children?": "Our sports range is formulated for adults (18+). However, we have a specific 'Fast&Up Kids' range formulated for younger needs.",
+    "17. What is Fast&Up Activate?": "Activate is a pre-workout effervescent drink containing L-Arginine, L-Carnitine, and Zinc to boost blood flow and delay fatigue.",
+    "18. What is Fast&Up Recover?": "Recover is a post-workout drink with a 3:1 Carbohydrate to Protein ratio, plus essential amino acids for complete muscle repair.",
+    "19. How much water should I use?": "Generally, 250ml of water per tablet is recommended, but you can adjust slightly based on your taste preference.",
+    "20. Where can I buy Fast&Up locally in Navi Mumbai?": "You can find our products at premium pharmacies like Wellness Forever in Sector 15, Kharghar, or order online for rapid delivery.",
+    "21. Are there any artificial colors?": "No, we do not use banned artificial colors. We use natural food colorings.",
+    "22. What should I take for joint pain?": "Fast&Up Joint Care contains Glucosamine, Chondroitin, and MSM to support cartilage health and joint mobility.",
+    "23. Can I take vitamins on an empty stomach?": "While possible, taking multivitamins (like Vitalize) with a meal increases absorption and prevents mild nausea.",
+    "24. Does Fast&Up have a loyalty program?": "Yes! Create an account on our website to earn 'F&U Coins' on every purchase which can be redeemed for discounts.",
+    "25. Where are Fast&Up products manufactured?": "Our products are formulated with Swiss Technology and manufactured in world-class, FSSAI-compliant facilities in India.",
+    "26. How do I track my order?": "You will receive a tracking link via SMS and Email as soon as your order is dispatched from our warehouse.",
+    "27. Is the packaging recyclable?": "Yes, our plastic tubes and cardboard outer boxes are 100% recyclable.",
+    "28. What if my effervescent tablet is broken?": "A broken tablet is perfectly safe to consume and will dissolve exactly the same way in water!",
+    "29. Does Fast&Up offer running gels?": "Yes, we offer Energy Gels packed with fast-acting carbohydrates specifically designed for endurance runners and cyclists.",
+    "30. How do I contact customer care?": "You can WhatsApp us at +91 9004044004 or email support@fastandup.in."
 }
 
 # --- 5. TABS INTERFACE ---
@@ -165,7 +189,7 @@ with tab1:
         if col2.button("🚫 Sugar-Free"): advance_step("Sugar-Free", None, "Diet")
         if col3.button("🍽️ None"): advance_step("No Restrictions", None, "Diet")
 
-    # --- API GENERATION (GROQ) ---
+    # --- API GENERATION (GROQ Llama 3.3 70B) ---
     elif st.session_state.chat_step == 3:
         with st.chat_message("assistant", avatar="⚡"):
             reply_placeholder = st.empty()
@@ -177,12 +201,12 @@ with tab1:
             st.session_state.api_history.append({"role": "user", "content": prompt})
             
             try:
-                # Groq API Call
+                # Using the massive 70B model
                 completion = client.chat.completions.create(
-                    model="llama3-8b-8192",
+                    model="llama-3.3-70b-versatile",
                     messages=st.session_state.api_history,
                     temperature=0.6,
-                    max_tokens=300,
+                    max_tokens=350,
                     stream=False
                 )
                 
@@ -198,7 +222,7 @@ with tab1:
             except Exception as e:
                 reply_placeholder.markdown(f"⚠️ Could not connect to the API. Please ensure your GROQ_API_KEY is valid. Error: {e}")
 
-    # --- OPEN CHAT ---
+    # --- OPEN CHAT (Follow-ups) ---
     elif st.session_state.chat_step == 4:
         if prompt := st.chat_input("Ask a follow-up question... (e.g., How do I use it?)"):
             st.session_state.messages.append({"role": "user", "content": prompt})
@@ -213,10 +237,10 @@ with tab1:
                 
                 try:
                     completion = client.chat.completions.create(
-                        model="llama3-8b-8192",
+                        model="llama-3.3-70b-versatile",
                         messages=st.session_state.api_history,
                         temperature=0.6,
-                        max_tokens=250,
+                        max_tokens=300,
                         stream=False
                     )
                     
@@ -226,4 +250,4 @@ with tab1:
                     st.session_state.api_history.append({"role": "assistant", "content": final_reply})
                     st.session_state.messages.append({"role": "assistant", "content": final_reply})
                 except Exception as e:
-                    reply_placeholder.markdown("⚠️ API Quota Exceeded. Please try again later.")
+                    reply_placeholder.markdown("⚠️ API connection issue. Please try again later.")
