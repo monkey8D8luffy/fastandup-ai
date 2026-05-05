@@ -86,7 +86,8 @@ _SYSTEM_PROMPT = textwrap.dedent("""\
     4. Base recommendations strictly on the user's provided diagnostic profile.
 """)
 
-_MODEL_NAME = "gemini-1.5-flash"
+   _MODEL_NAME = "gemini-pro"
+
 
 def get_gemini_recommendation(diagnostic_summary: str, chat_history: list[dict]) -> str:
     try:
