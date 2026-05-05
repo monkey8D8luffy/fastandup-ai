@@ -149,7 +149,7 @@ FAQS = {
 }
 
 # --- 5. TABS INTERFACE ---
-tab1, tab2 = st.tabs(["💬 AI Consultant", "📚 30 Instant FAQs"])
+tab1, tab2 = st.tabs(["💬 AI Consultant", "FAQs"])
 
 with tab2:
     st.markdown("### Common Questions")
