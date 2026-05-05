@@ -40,5 +40,4 @@ Want to run this project locally on your own machine? Follow these steps:
 
 ### 1. Clone the repository
 ```bash
-git clone [https://github.com/your-username/fastandup-ai.git](https://github.com/your-username/fastandup-ai.git)
-cd fastandup-ai
+git clone (https://github.com/monkey8D8luffy/fastandup-ai.git)
