@@ -10,6 +10,36 @@ def init_gemini(api_key: str) -> None:
     """Configure the Gemini SDK once at startup."""
     genai.configure(api_key=api_key)
 
+# --- NEW: Auto-Detect Best Working Model ---
+_WORKING_MODEL = None
+
+def get_working_model() -> str:
+    """Dynamically asks Google's servers which models your API key has access to."""
+    global _WORKING_MODEL
+    if _WORKING_MODEL:
+        return _WORKING_MODEL
+    
+    try:
+        # Call ListModels just like the error message suggested!
+        valid_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        # Rank our preferences from newest to oldest
+        preferences = ['models/gemini-1.5-flash', 'models/gemini-1.5-pro', 'models/gemini-pro', 'models/gemini-1.0-pro']
+        
+        for pref in preferences:
+            if pref in valid_models:
+                _WORKING_MODEL = pref
+                return _WORKING_MODEL
+                
+        # If none of our preferences match, just grab the first valid text model available
+        if valid_models:
+            _WORKING_MODEL = valid_models[0]
+            return _WORKING_MODEL
+    except Exception:
+        pass
+        
+    return "models/gemini-1.5-flash" # Absolute fallback
+
 # --- 1. Local FAQ Dictionary & Router (ZERO API TOKENS) ---
 FAQ_DB: list[tuple[list[str], str]] = [
     (
@@ -86,19 +116,18 @@ _SYSTEM_PROMPT = textwrap.dedent("""\
     4. Base recommendations strictly on the user's provided diagnostic profile.
 """)
 
-# CHANGED MODEL NAME TO FIX THE 404 ERROR
-_MODEL_NAME = "gemini-pro"
-
 def get_gemini_recommendation(diagnostic_summary: str, chat_history: list[dict]) -> str:
     try:
-        model = genai.GenerativeModel(model_name=_MODEL_NAME, system_instruction=_SYSTEM_PROMPT)
+        model = genai.GenerativeModel(model_name=get_working_model())
         history_payload = list(chat_history)
-        if not history_payload:
-            history_payload = [{
-                "role": "user",
-                "parts": [f"Here is my profile:\n{diagnostic_summary}\n\nBased on this, what Fast&Up products do you recommend?"]
-            }]
         
+        # Inject the strict Fast&Up brand guardrails directly into the first prompt
+        # This completely bypasses the SDK versioning bugs causing the 404 errors!
+        if history_payload and "SYSTEM INSTRUCTIONS" not in history_payload[0]["parts"][0]:
+            history_payload[0]["parts"][0] = f"SYSTEM INSTRUCTIONS:\n{_SYSTEM_PROMPT}\n\n" + history_payload[0]["parts"][0]
+            # Update the original history so Streamlit remembers the rules
+            chat_history[0]["parts"][0] = history_payload[0]["parts"][0]
+            
         chat = model.start_chat(history=history_payload[:-1])
         result = chat.send_message(history_payload[-1]["parts"][0])
         return result.text
@@ -107,7 +136,7 @@ def get_gemini_recommendation(diagnostic_summary: str, chat_history: list[dict])
 
 def get_gemini_followup(user_message: str, chat_history: list[dict]) -> str:
     try:
-        model = genai.GenerativeModel(model_name=_MODEL_NAME, system_instruction=_SYSTEM_PROMPT)
+        model = genai.GenerativeModel(model_name=get_working_model())
         chat = model.start_chat(history=chat_history[:-1])
         result = chat.send_message(user_message)
         return result.text
