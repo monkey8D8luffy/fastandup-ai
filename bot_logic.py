@@ -39,7 +39,7 @@ FAQ_DB: list[tuple[list[str], str]] = [
 ]
 
 def local_faq_lookup(user_input: str) -> Optional[str]:
-    """Scan user input against FAQ patterns[span_3](start_span)[span_3](end_span)."""
+    """Scan user input against FAQ patterns."""
     text = user_input.lower().strip()
     for patterns, answer in FAQ_DB:
         for pattern in patterns:
@@ -86,8 +86,8 @@ _SYSTEM_PROMPT = textwrap.dedent("""\
     4. Base recommendations strictly on the user's provided diagnostic profile.
 """)
 
-   _MODEL_NAME = "gemini-pro"
-
+# CHANGED MODEL NAME TO FIX THE 404 ERROR
+_MODEL_NAME = "gemini-pro"
 
 def get_gemini_recommendation(diagnostic_summary: str, chat_history: list[dict]) -> str:
     try:
