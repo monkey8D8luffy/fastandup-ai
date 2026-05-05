@@ -54,23 +54,25 @@ st.markdown("""
         box-shadow: 0 1px 2px rgba(11,20,26,0.1) !important;
     }
     
-    /* Selection Buttons (Fast&Up Theme) */
+    /* Selection Buttons (Fast&Up Theme - 2x2 Grid Setup) */
     .stButton>button {
         width: 100%;
-        border-radius: 20px;
+        border-radius: 16px;
         background-color: #FFFFFF !important;
         border: 2px solid #FF5A00 !important;
         color: #FF5A00 !important;
-        font-weight: bold;
+        font-weight: 700;
         transition: all 0.2s ease;
-        padding: 8px;
+        padding: 12px 8px;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
     }
     .stButton>button:hover { background-color: #FF5A00 !important; color: #FFFFFF !important; box-shadow: 0px 4px 10px rgba(255, 90, 0, 0.2); }
     
     /* Chat Input Area */
     [data-testid="stChatInput"] { background-color: #FFFFFF !important; border: 1px solid #D1D7DB !important; border-radius: 25px !important; }
     
-    /* Tabs & Expander (Fixing invisible text) */
+    /* Tabs & Expander */
     .stTabs [data-baseweb="tab-list"] { gap: 10px; justify-content: center; }
     .stTabs [data-baseweb="tab"] { background-color: #FFFFFF; border-radius: 10px 10px 0px 0px; border: 1px solid #D1D7DB; border-bottom: none;}
     .stTabs [aria-selected="true"] { background-color: #FF5A00 !important; }
@@ -91,7 +93,7 @@ except KeyError:
 
 SYSTEM_PROMPT = """
 You are the Fast&Up Premium Sports Nutrition AI Consultant.
-1. Recommend ONLY Fast&Up products (e.g., Reload, BCAA, Charge, Plant Protein, Activate, Recover).
+1. Recommend ONLY Fast&Up products (e.g., Reload, BCAA, Charge, Plant Protein, Activate, Recover, Joint Care, Vitalize).
 2. Never mention competitor brands.
 3. Be concise, highly encouraging, and act like a professional nutritionist.
 4. Base your recommendation strictly on the user's provided profile. Tell them EXACTLY why the product fits their needs.
@@ -167,33 +169,42 @@ with tab1:
         with st.chat_message(msg["role"], avatar=avatar):
             st.markdown(msg["content"])
 
-    # --- THE DIAGNOSTIC BUTTON FLOW ---
+    # --- THE DIAGNOSTIC BUTTON FLOW (EXPANDED 2x2 GRID) ---
     if st.session_state.chat_step == 0:
         st.write("") 
-        col1, col2, col3 = st.columns(3)
-        if col1.button("🏃‍♂️ Running/Cardio"): advance_step("Running / Cardio", "Got it! 💪\n\n**Next, what is your biggest challenge?**", "Goal")
-        if col2.button("🏋️‍♂️ Gym/Weights"): advance_step("Gym / Weightlifting", "Got it! 💪\n\n**Next, what is your biggest challenge?**", "Goal")
-        if col3.button("⚡ Daily Energy"): advance_step("Daily Health & Energy", "Got it! 💪\n\n**Next, what is your biggest challenge?**", "Goal")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🏃‍♂️ Endurance (Run/Cycle)"): advance_step("Endurance (Running/Cycling)", "Awesome! 🏃\n\n**Next, what is your biggest challenge or pain point?**", "Goal")
+            if st.button("🛡️ Health & Immunity"): advance_step("Daily Health & Immunity", "Great choice! 🛡️\n\n**Next, what is your biggest challenge or pain point?**", "Goal")
+        with col2:
+            if st.button("🏋️‍♂️ Muscle Building (Gym)"): advance_step("Muscle Building (Gym)", "Let's get strong! 🏋️\n\n**Next, what is your biggest challenge or pain point?**", "Goal")
+            if st.button("🦴 Joint Support & Flex"): advance_step("Joint Support & Flexibility", "Got it! 🦴\n\n**Next, what is your biggest challenge or pain point?**", "Goal")
 
     elif st.session_state.chat_step == 1:
         st.write("")
-        col1, col2, col3 = st.columns(3)
-        if col1.button("😴 Fatigue"): advance_step("Fatigue", "Understood. 🥗\n\n**Finally, any dietary preferences?**", "Challenge")
-        if col2.button("🤕 Soreness"): advance_step("Muscle Soreness", "Understood. 🥗\n\n**Finally, any dietary preferences?**", "Challenge")
-        if col3.button("💧 Dehydration"): advance_step("Dehydration", "Understood. 🥗\n\n**Finally, any dietary preferences?**", "Challenge")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("😴 Extreme Fatigue"): advance_step("Extreme Fatigue / Low Energy", "Understood. 🥗\n\n**Finally, do you have any dietary preferences?**", "Challenge")
+            if st.button("💧 Dehydration / Cramps"): advance_step("Dehydration & Muscle Cramps", "Understood. 🥗\n\n**Finally, do you have any dietary preferences?**", "Challenge")
+        with col2:
+            if st.button("🤕 Slow Muscle Recovery"): advance_step("Muscle Soreness & Slow Recovery", "Understood. 🥗\n\n**Finally, do you have any dietary preferences?**", "Challenge")
+            if st.button("🦠 Weak Immunity / Sick"): advance_step("Weak Immunity / Falling Sick Often", "Understood. 🥗\n\n**Finally, do you have any dietary preferences?**", "Challenge")
 
     elif st.session_state.chat_step == 2:
         st.write("")
-        col1, col2, col3 = st.columns(3)
-        if col1.button("🌱 Vegan"): advance_step("Vegan", None, "Diet")
-        if col2.button("🚫 Sugar-Free"): advance_step("Sugar-Free", None, "Diet")
-        if col3.button("🍽️ None"): advance_step("No Restrictions", None, "Diet")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🌱 100% Vegan"): advance_step("Strictly Vegan", None, "Diet")
+            if st.button("🥛 Dairy-Tolerant (Whey)"): advance_step("Dairy-Tolerant (Can consume Whey)", None, "Diet")
+        with col2:
+            if st.button("🚫 Zero Added Sugar"): advance_step("Strictly Zero Added Sugar", None, "Diet")
+            if st.button("🍽️ No Restrictions"): advance_step("No Restrictions", None, "Diet")
 
     # --- API GENERATION (GROQ Llama 3.3 70B) ---
     elif st.session_state.chat_step == 3:
         with st.chat_message("assistant", avatar="⚡"):
             reply_placeholder = st.empty()
-            reply_placeholder.markdown("*Analyzing your profile with Fast&Up Science...*")
+            reply_placeholder.markdown("*Analyzing your precise profile with Fast&Up Science...*")
             
             summary = f"Goal: {st.session_state.user_profile['Goal']}\nChallenge: {st.session_state.user_profile['Challenge']}\nDiet: {st.session_state.user_profile['Diet']}"
             prompt = f"USER PROFILE:\n{summary}\n\nBased strictly on this profile, recommend the perfect Fast&Up product and explain why."
@@ -224,7 +235,7 @@ with tab1:
 
     # --- OPEN CHAT (Follow-ups) ---
     elif st.session_state.chat_step == 4:
-        if prompt := st.chat_input("Ask a follow-up question... (e.g., How do I use it?)"):
+        if prompt := st.chat_input("Ask a follow-up question... (e.g., When exactly should I drink this?)"):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user", avatar="👤"):
                 st.markdown(prompt)
