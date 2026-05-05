@@ -1,94 +1,185 @@
+from __future__ import annotations
+import os
+from pathlib import Path
 import streamlit as st
-import google.generativeai as genai
-import time
 
-# --- 1. PAGE CONFIGURATION & PREMIUM UI ---
-st.set_page_config(page_title="Fast&Up Consultant", page_icon="⚡", layout="centered")
-
-st.markdown("""
-<style>
-    .stApp { background-color: #0E1117; color: #FAFAFA; }
-    .stChatMessage { border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #2D3748; background-color: #1A202C; }
-    [data-testid="chatAvatarIcon-user"] { background-color: #00ffd5; color: black; }
-    h1 { color: #00ffd5; text-align: center; padding-bottom: 20px; }
-</style>
-""", unsafe_allow_html=True)
-
-st.title("⚡ Fast&Up Pro Consultant")
-
-# --- 2. THE DIAGNOSTIC API SETUP ---
-genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-
-# This System Instruction forces the AI to ask questions before answering
-diagnostic_prompt = """
-You are a premium Fast&Up sports nutrition AI consultant. 
-Your goal is to find the absolute perfect product match for the user by conducting a personalized consultation. 
-
-CRITICAL RULES:
-1. DO NOT recommend a product immediately.
-2. You must ask the user the following 3 questions, but ask them strictly ONE AT A TIME. Wait for their answer before asking the next one.
-   - Question 1: What is your primary fitness activity or goal? (e.g., running, gym, cycling, daily energy)
-   - Question 2: What is your biggest challenge during or after this activity? (e.g., fatigue, muscle soreness, dehydration)
-   - Question 3: Do you have any specific dietary preferences? (e.g., vegan, sugar-free)
-3. Be conversational and energetic. Acknowledge their previous answer briefly before asking the next question.
-4. Only AFTER you have gathered the answers to all 3 questions, analyze their profile and recommend the most suitable Fast&Up product (e.g., Reload, BCAA, Activate, Plant Protein). Explain exactly why it fits their specific needs based on their answers.
-"""
-
-expert_model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-    system_instruction=diagnostic_prompt
+from bot_logic import (
+    build_diagnostic_summary,
+    get_diagnostic_step,
+    get_gemini_followup,
+    get_gemini_recommendation,
+    init_gemini,
+    local_faq_lookup,
 )
 
-# --- 3. SESSION STATE MANAGEMENT ---
-if "messages" not in st.session_state:
-    # The AI starts the diagnostic flow immediately
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Welcome to Fast&Up! I'm your AI sports nutritionist. To find the perfect fuel for your body, I just need to ask you three quick questions.\n\nFirst, **what is your primary fitness activity or goal right now?**"}
-    ]
+# --- Page Config ---
+st.set_page_config(page_title="Fast&Up | AI Nutrition Expert", page_icon="⚡", layout="centered", initial_sidebar_state="collapsed")
 
-if "gemini_history" not in st.session_state:
-    # Initialize the history so the AI remembers the instructions and the first question
-    st.session_state.gemini_history = [
-        {"role": "model", "parts": ["Welcome to Fast&Up! I'm your AI sports nutritionist. To find the perfect fuel for your body, I just need to ask you three quick questions.\n\nFirst, **what is your primary fitness activity or goal right now?**"]}
-    ]
+# --- Inject CSS ---
+_CSS_PATH = Path(__file__).parent / "style.css"
+def _load_css() -> None:
+    if _CSS_PATH.exists():
+        css = _CSS_PATH.read_text(encoding="utf-8")
+        st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+_load_css()
 
-# --- 4. RENDER CHAT HISTORY ---
-for msg in st.session_state.messages:
-    avatar = "👤" if msg["role"] == "user" else "⚡"
-    with st.chat_message(msg["role"], avatar=avatar):
-        st.markdown(msg["content"])
+# --- Gemini Initialisation ---
+@st.cache_resource(show_spinner=False)
+def _init_gemini_once(api_key: str) -> None:
+    init_gemini(api_key)
 
-# --- 5. THE DYNAMIC CHAT LOGIC ---
-if prompt := st.chat_input("Type your answer here..."):
-    # 1. Show User Answer
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="👤"):
-        st.markdown(prompt)
-
-    # 2. Trigger API to analyze the answer and ask the next question (or give the final result)
-    with st.chat_message("assistant", avatar="⚡"):
-        message_placeholder = st.empty()
-        message_placeholder.markdown("*Analyzing...*")
-        
+def _get_api_key() -> str | None:
+    key = os.getenv("GEMINI_API_KEY", "")
+    if not key:
         try:
-            # We pass the history so the AI knows which question it's currently on!
-            chat = expert_model.start_chat(history=st.session_state.gemini_history)
-            response = chat.send_message(prompt)
-            reply = response.text
-            
-            # Save the updated history back to the session state
-            st.session_state.gemini_history = chat.history
-            
-        except Exception as e:
-            reply = f"Error: Please ensure your API key is correct in the Streamlit settings."
+            key = st.secrets.get("GEMINI_API_KEY", "")
+        except Exception:
+            return None
+    return key or None
 
-        # 3. Stream the text smoothly
-        full_response = ""
-        for chunk in reply.split(" "):
-            full_response += chunk + " "
-            message_placeholder.markdown(full_response + "▌")
-            time.sleep(0.02)
-        message_placeholder.markdown(full_response)
+_api_key = _get_api_key()
+if _api_key:
+    _init_gemini_once(_api_key)
+
+# --- Session State Bootstrap ---
+DEFAULTS: dict = {
+    "screen": "welcome",
+    "faq_messages": [],
+    "diag_goal": None,
+    "diag_step": 0,
+    "diag_answers": {},
+    "diag_summary": "",
+    "ai_messages": [],
+    "gemini_history": [],
+    "consult_started": False,
+}
+
+for k, v in DEFAULTS.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+def _go(screen: str) -> None:
+    st.session_state["screen"] = screen
+    st.rerun()
+
+def _reset() -> None:
+    for k, v in DEFAULTS.items():
+        st.session_state[k] = v
+    st.rerun()
+
+def _append_gemini_history(role: str, text: str) -> None:
+    st.session_state["gemini_history"].append({"role": role, "parts": [text]})
+
+# --- Screens ---
+def _screen_welcome() -> None:
+    st.title("⚡ Fast&Up AI Expert")
+    st.markdown("Your personal Fast&Up nutrition advisor.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("💬 Instant FAQs", use_container_width=True):
+            _go("faq_chat")
+    with col2:
+        if st.button("🤖 AI Consult", use_container_width=True):
+            if not _api_key:
+                st.error("API key missing. Set GEMINI_API_KEY.")
+            else:
+                _go("diag_goal")
+
+def _screen_faq_chat() -> None:
+    if st.button("← Back to Menu"):
+        _reset()
+    st.markdown("### 💬 Instant FAQ Answers")
+    
+    for msg in st.session_state["faq_messages"]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            
+    if prompt := st.chat_input("Ask about delivery, vegan products, stores..."):
+        st.session_state["faq_messages"].append({"role": "user", "content": prompt})
+        answer = local_faq_lookup(prompt)
         
-    # 4. Save AI's response to UI state
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+        if answer:
+            st.session_state["faq_messages"].append({"role": "assistant", "content": answer})
+        else:
+            st.session_state["faq_messages"].append({"role": "assistant", "content": "I don't have a ready answer for that. Try our AI Consult!"})
+        st.rerun()
+
+def _screen_diag_goal() -> None:
+    if st.button("← Back"): _reset()
+    st.markdown("### Step 1: What is your primary goal?")
+    GOALS = ["Hydration / Energy", "Muscle Building / Recovery"]
+    
+    goal = st.radio("Select your goal:", options=GOALS, label_visibility="collapsed")
+    if st.button("Continue", use_container_width=True):
+        st.session_state["diag_goal"] = goal
+        st.session_state["diag_step"] = 0
+        st.session_state["diag_answers"] = {}
+        _go("diag_steps")
+
+def _screen_diag_steps() -> None:
+    goal = st.session_state["diag_goal"]
+    step_index = st.session_state["diag_step"]
+    from bot_logic import DIAGNOSTIC_STEPS
+    total_steps = len(DIAGNOSTIC_STEPS.get(goal, []))
+    
+    step = get_diagnostic_step(goal, step_index)
+    if step is None:
+        answers = st.session_state["diag_answers"]
+        st.session_state["diag_summary"] = build_diagnostic_summary(goal, answers)
+        _go("ai_chat")
+        return
+
+    st.progress((step_index) / total_steps, text=f"Question {step_index + 1}/{total_steps}")
+    st.markdown(f"### {step['question']}")
+    
+    chosen = st.radio("Choose one:", options=step["options"], label_visibility="collapsed")
+    
+    if st.button("Next ➔", use_container_width=True):
+        st.session_state["diag_answers"][step["key"]] = chosen
+        st.session_state["diag_step"] += 1
+        st.rerun()
+
+def _screen_ai_chat() -> None:
+    if st.button("← Start Over"): _reset()
+    st.markdown("### 🤖 Fast&Up AI Recommendation")
+    
+    if not st.session_state["consult_started"]:
+        st.session_state["consult_started"] = True
+        summary = st.session_state["diag_summary"]
+        
+        st.session_state["ai_messages"].append({"role": "user", "content": f"**My Profile:**\n{summary}"})
+        seed_turn = {"role": "user", "parts": [f"Profile:\n{summary}\n\nWhat Fast&Up products do you recommend?"]}
+        st.session_state["gemini_history"] = [seed_turn]
+        
+        with st.spinner("Analyzing..."):
+            reply = get_gemini_recommendation(summary, [seed_turn])
+            st.session_state["ai_messages"].append({"role": "assistant", "content": reply})
+            _append_gemini_history("model", reply)
+            st.rerun()
+
+    for msg in st.session_state["ai_messages"]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            
+    if prompt := st.chat_input("Ask a follow up..."):
+        st.session_state["ai_messages"].append({"role": "user", "content": prompt})
+        _append_gemini_history("user", prompt)
+        
+        with st.spinner("Thinking..."):
+            reply = get_gemini_followup(prompt, st.session_state["gemini_history"])
+            st.session_state["ai_messages"].append({"role": "assistant", "content": reply})
+            _append_gemini_history("model", reply)
+        st.rerun()
+
+# --- Router ---
+def main() -> None:
+    screen = st.session_state["screen"]
+    if screen == "welcome": _screen_welcome()
+    elif screen == "faq_chat": _screen_faq_chat()
+    elif screen == "diag_goal": _screen_diag_goal()
+    elif screen == "diag_steps": _screen_diag_steps()
+    elif screen == "ai_chat": _screen_ai_chat()
+
+if __name__ == "__main__":
+    main()
