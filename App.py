@@ -69,8 +69,10 @@ st.markdown("""
     }
     .stButton>button:hover { background-color: #FF5A00 !important; color: #FFFFFF !important; box-shadow: 0px 4px 10px rgba(255, 90, 0, 0.2); }
     
-    /* Chat Input Area */
-    [data-testid="stChatInput"] { background-color: #FFFFFF !important; border: 1px solid #D1D7DB !important; border-radius: 25px !important; }
+    /* FIXED: Chat Input Area (Forces Light Mode & Bottom Pin) */
+    [data-testid="stChatInput"] { background-color: #FFFFFF !important; border: 2px solid #FF5A00 !important; border-radius: 25px !important; }
+    [data-testid="stChatInput"] textarea { color: #111B21 !important; background-color: #FFFFFF !important; }
+    [data-testid="stChatInput"] button { color: #FF5A00 !important; }
     
     /* Tabs & Expander */
     .stTabs [data-baseweb="tab-list"] { gap: 10px; justify-content: center; }
@@ -260,5 +262,8 @@ with tab1:
                     
                     st.session_state.api_history.append({"role": "assistant", "content": final_reply})
                     st.session_state.messages.append({"role": "assistant", "content": final_reply})
+                    
+                    # FIXED: Instantly re-runs the script so the chat history renders cleanly above the typing bar
+                    st.rerun()
                 except Exception as e:
                     reply_placeholder.markdown("⚠️ API connection issue. Please try again later.")
