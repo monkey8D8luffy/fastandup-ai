@@ -156,7 +156,7 @@ FAQS = {
 }
 
 # --- 5. TABS INTERFACE ---
-tab1, tab2 = st.tabs(["💬 AI Consultant", "📚 Instant FAQs"])
+tab1, tab2 = st.tabs([" AI Consultant", " Instant FAQs"])
 
 with tab2:
     st.markdown("<h4 style='color:#00205B !important;'>Common Questions</h4>", unsafe_allow_html=True)
